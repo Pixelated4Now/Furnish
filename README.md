@@ -1,41 +1,122 @@
-<<<<<<< HEAD
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Furnish
+
+A furniture e-commerce web app with a built-in 3D room planner. Browse products, visualise them in your room before buying, and manage everything through an admin dashboard.
+
+---
+
+## Project Overview
+
+Furnish lets shoppers browse a catalogue of furniture, filter by category, add items to a persistent cart, and arrange pieces in a real-time 3D room planner — all in one place. An admin dashboard lets authorised users manage products and categories without touching the database directly.
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 (App Router) |
+| Language | TypeScript |
+| Styling | Tailwind CSS v4 |
+| Database | SQLite via `better-sqlite3` |
+| ORM | Prisma 7 (driver adapter) |
+| Auth | JWT cookies via `jose`, passwords hashed with `bcryptjs` |
+| 3D rendering | Three.js + React Three Fiber + Drei |
+| State management | Zustand (cart, persisted to localStorage) |
+| Runtime | Node.js |
+
+---
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18 or later
+- npm 9 or later
+
+### Installation
+
+1. Clone the repository and install dependencies:
+
+```bash
+git clone <repo-url>
+cd furnish
+npm install
+```
+
+2. Generate the Prisma client:
+
+```bash
+npx prisma generate
+```
+
+3. Push the schema to create the SQLite database:
+
+```bash
+npx prisma db push
+```
+
+### Seed the Database
+
+Populate the database with two demo users, 8 products, and 7 categories:
+
+```bash
+npx prisma db seed
+```
+
+### Run the Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Default Login Credentials
 
-## Learn More
+These accounts are created by the seed script.
 
-To learn more about Next.js, take a look at the following resources:
+| Role | Email | Password |
+|---|---|---|
+| Admin | admin@furnish.com | admin123 |
+| User | john@furnish.com | user123 |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The admin account has access to the dashboard at `/admin`. Regular user accounts can browse, use the planner, and manage their cart.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## Features
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Shopping
+- Browse the full product catalogue with category filtering and sort options (name, price)
+- Product cards with hover-reveal "Add to Cart" button
+- Persistent cart stored in localStorage — survives page refreshes
+- Cart page with quantity controls, line totals, and order summary
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-=======
-# Furniture-Website-with-Product-Visualization
-A web-based application to enhance the in-store customer experience. The application will allow designers to work with customers to visualize how selected  furniture items (chairs, dining tables, side tables, etc.) would look in their rooms, to help customers make informed  choices about whether the furniture fits both spatially and aesthetically. 
->>>>>>> ed5826d39d6d7ce1bda404c49a8038e71345866f
+### 3D Room Planner
+- Set custom room dimensions before starting
+- Drag furniture from the sidebar onto the canvas
+- Switch between a top-down 2D view and a perspective 3D view with a smooth camera transition
+- Drag placed furniture to reposition it; pieces snap back if they would overlap
+- Rotate pieces through 0°, 90°, 180°, and 270°
+- Select a placed piece to switch between its available colour or material variants
+- AABB collision detection prevents furniture pieces from overlapping
+- "Add All to Cart" button adds every placed item to the cart in one click
+
+### Auth
+- Sign up and log in with email and password
+- JWT stored as an HTTP-only cookie
+- Protected routes redirect unauthenticated users
+
+### Admin Dashboard
+- Full CRUD for products: create, edit, and delete with inline validation
+- Manage product variants (colour/material options with per-variant images and 3D models)
+- Full CRUD for categories with image and slug management
+- Stats overview: total products, categories, and registered users
+
+### General
+- Responsive layout — collapses to a mobile-friendly view with a hamburger nav
+- Skeleton loading states across all data-fetching pages
+- Inline error messages on all forms
+- Empty states with contextual prompts on every list view
