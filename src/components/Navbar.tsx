@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import { useCartStore } from "@/store/cartStore";
 
 export default function Navbar() {
   const { user, loading, logout } = useAuth();
+  const totalItems = useCartStore((s) => s.getTotalItems());
 
   return (
     <nav className="flex items-center justify-between px-8 py-6">
@@ -21,6 +23,15 @@ export default function Navbar() {
         </Link>
         <Link href="/planner" className="hover:opacity-60 transition-opacity">
           3D Preview
+        </Link>
+        {/* Cart with badge */}
+        <Link href="/cart" className="relative hover:opacity-60 transition-opacity">
+          Cart
+          {totalItems > 0 && (
+            <span className="absolute -top-2 -right-4 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-[#0a0a0a] text-white text-[10px] px-1 tabular-nums leading-none">
+              {totalItems > 99 ? "99+" : totalItems}
+            </span>
+          )}
         </Link>
       </div>
 
