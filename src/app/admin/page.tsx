@@ -25,6 +25,13 @@ interface Product {
   variants: string;
 }
 
+interface Category {
+  id: number;
+  name: string;
+  imageUrl: string;
+  slug: string;
+}
+
 interface Stats {
   totalProducts: number;
   totalCategories: number;
@@ -44,8 +51,6 @@ const EMPTY_FORM = {
   depth: "",
 };
 
-const CATEGORIES = ["Sofa", "Table", "Chair", "Bed", "Decor", "Living Room", "Dining", "Office"];
-
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
@@ -57,8 +62,9 @@ export default function AdminPage() {
   // Data
   const [products, setProducts] = useState<Product[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
 
-  // Form state
+  // Product form state
   const [formMode, setFormMode] = useState<FormMode>("add");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -69,10 +75,19 @@ export default function AdminPage() {
   // Variant builder state
   const [variants, setVariants] = useState<Variant[]>([]);
 
+  // Category form state
+  const [catFormOpen, setCatFormOpen] = useState(false);
+  const [catFormMode, setCatFormMode] = useState<"add" | "edit">("add");
+  const [editingCatId, setEditingCatId] = useState<number | null>(null);
+  const [catForm, setCatForm] = useState({ name: "", slug: "", imageUrl: "" });
+  const [catFormErrors, setCatFormErrors] = useState<Record<string, string>>({});
+  const [catFormSaving, setCatFormSaving] = useState(false);
+
   // Feedback
   const [successMsg, setSuccessMsg] = useState("");
 
   const formRef = useRef<HTMLDivElement>(null);
+  const catFormRef = useRef<HTMLDivElement>(null);
 
   // ── Auth guard ──────────────────────────────────────────────────────────
 
@@ -101,13 +116,27 @@ export default function AdminPage() {
       .then((d) => setStats(d));
   }
 
+  function loadCategories() {
+    fetch("/api/categories")
+      .then((r) => r.json())
+      .then((d) => setCategories(Array.isArray(d) ? d : []));
+  }
+
   useEffect(() => {
     if (!authChecked) return;
     loadProducts();
     loadStats();
+    loadCategories();
   }, [authChecked]);
 
-  // ── Form helpers ────────────────────────────────────────────────────────
+  // ── Feedback ────────────────────────────────────────────────────────────
+
+  function flash(msg: string) {
+    setSuccessMsg(msg);
+    setTimeout(() => setSuccessMsg(""), 3000);
+  }
+
+  // ── Product form helpers ─────────────────────────────────────────────────
 
   function openAdd() {
     setForm(EMPTY_FORM);
@@ -230,14 +259,78 @@ export default function AdminPage() {
     flash("Product deleted.");
   }
 
-  function flash(msg: string) {
-    setSuccessMsg(msg);
-    setTimeout(() => setSuccessMsg(""), 3000);
-  }
-
   function field(key: keyof typeof EMPTY_FORM, val: string) {
     setForm((f) => ({ ...f, [key]: val }));
     if (formErrors[key]) setFormErrors((e) => { const n = { ...e }; delete n[key]; return n; });
+  }
+
+  // ── Category form helpers ────────────────────────────────────────────────
+
+  function openAddCat() {
+    setCatForm({ name: "", slug: "", imageUrl: "" });
+    setCatFormErrors({});
+    setCatFormMode("add");
+    setEditingCatId(null);
+    setCatFormOpen(true);
+    setTimeout(() => catFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  }
+
+  function openEditCat(c: Category) {
+    setCatForm({ name: c.name, slug: c.slug, imageUrl: c.imageUrl });
+    setCatFormErrors({});
+    setCatFormMode("edit");
+    setEditingCatId(c.id);
+    setCatFormOpen(true);
+    setTimeout(() => catFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  }
+
+  function closeCatForm() {
+    setCatFormOpen(false);
+    setEditingCatId(null);
+    setCatFormErrors({});
+  }
+
+  function catField(key: "name" | "slug" | "imageUrl", val: string) {
+    setCatForm((f) => {
+      const next = { ...f, [key]: val };
+      if (key === "name") {
+        next.slug = val.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+      }
+      return next;
+    });
+    if (catFormErrors[key]) setCatFormErrors((e) => { const n = { ...e }; delete n[key]; return n; });
+  }
+
+  async function handleSaveCat() {
+    const errs: Record<string, string> = {};
+    if (!catForm.name.trim()) errs.name = "Name is required";
+    if (!catForm.slug.trim()) errs.slug = "Slug is required";
+    if (Object.keys(errs).length) { setCatFormErrors(errs); return; }
+    setCatFormSaving(true);
+    const url = catFormMode === "edit" ? `/api/admin/categories/${editingCatId}` : "/api/admin/categories";
+    const method = catFormMode === "edit" ? "PUT" : "POST";
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: catForm.name.trim(), slug: catForm.slug.trim(), imageUrl: catForm.imageUrl.trim() }),
+      });
+      if (!res.ok) throw new Error();
+      closeCatForm();
+      loadCategories();
+      flash(catFormMode === "edit" ? "Category updated." : "Category added.");
+    } catch {
+      setCatFormErrors({ _: "Something went wrong. Please try again." });
+    } finally {
+      setCatFormSaving(false);
+    }
+  }
+
+  async function handleDeleteCat(id: number, name: string) {
+    if (!confirm(`Delete category "${name}"? This cannot be undone.`)) return;
+    await fetch(`/api/admin/categories/${id}`, { method: "DELETE" });
+    loadCategories();
+    flash("Category deleted.");
   }
 
   // ── Loading / auth ──────────────────────────────────────────────────────
@@ -309,7 +402,11 @@ export default function AdminPage() {
                   onChange={(e) => field("category", e.target.value)}
                   className={inputCls(false)}
                 >
-                  {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+                  {categories.length === 0 ? (
+                    <option value="">Loading categories…</option>
+                  ) : (
+                    categories.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)
+                  )}
                 </select>
               </FormField>
 
@@ -379,51 +476,69 @@ export default function AdminPage() {
                   Variants
                 </label>
 
-                {/* Variant card rows */}
-                {variants.map((v, idx) => (
-                  <div key={idx} className="flex gap-2 items-start border border-gray-100 p-3">
-                    <div className="flex-1 grid grid-cols-3 gap-2">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] text-[#6b7280] uppercase tracking-wider">Name</span>
-                        <input
-                          type="text"
-                          value={v.name}
-                          onChange={(e) => updateVariant(idx, "name", e.target.value)}
-                          className={inputCls(false)}
-                          placeholder="Oak"
-                        />
+                {/* Compute which rows have duplicate names (real-time, no save needed) */}
+                {(() => {
+                  const nameCounts: Record<string, number[]> = {};
+                  variants.forEach((v, i) => {
+                    const n = v.name.trim();
+                    if (n) (nameCounts[n] ??= []).push(i);
+                  });
+                  const dupIdx = new Set<number>();
+                  Object.values(nameCounts).forEach((idxs) => {
+                    if (idxs.length > 1) idxs.forEach((i) => dupIdx.add(i));
+                  });
+
+                  return variants.map((v, idx) => {
+                    const isDup = dupIdx.has(idx);
+                    return (
+                      <div key={idx} className="flex gap-2 items-start border border-gray-100 p-3">
+                        <div className="flex-1 grid grid-cols-3 gap-2">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] text-[#6b7280] uppercase tracking-wider">Name</span>
+                            <input
+                              type="text"
+                              value={v.name}
+                              onChange={(e) => updateVariant(idx, "name", e.target.value)}
+                              className={inputCls(isDup)}
+                              placeholder="Oak"
+                            />
+                            {isDup && (
+                              <p className="text-[10px] text-red-500">Duplicate name</p>
+                            )}
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] text-[#6b7280] uppercase tracking-wider">Model URL</span>
+                            <input
+                              type="text"
+                              value={v.modelUrl}
+                              onChange={(e) => updateVariant(idx, "modelUrl", e.target.value)}
+                              className={inputCls(false)}
+                              placeholder="/models/chair-oak.glb"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] text-[#6b7280] uppercase tracking-wider">Image URL</span>
+                            <input
+                              type="text"
+                              value={v.imageUrl}
+                              onChange={(e) => updateVariant(idx, "imageUrl", e.target.value)}
+                              className={inputCls(false)}
+                              placeholder="/images/chair-oak.jpg"
+                            />
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeVariant(idx)}
+                          className="mt-5 px-2 py-0.5 text-sm text-[#6b7280] border border-gray-200 hover:border-gray-400 hover:text-[#0a0a0a] transition-colors"
+                          aria-label="Remove variant"
+                        >
+                          ×
+                        </button>
                       </div>
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] text-[#6b7280] uppercase tracking-wider">Model URL</span>
-                        <input
-                          type="text"
-                          value={v.modelUrl}
-                          onChange={(e) => updateVariant(idx, "modelUrl", e.target.value)}
-                          className={inputCls(false)}
-                          placeholder="/models/chair-oak.glb"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] text-[#6b7280] uppercase tracking-wider">Image URL</span>
-                        <input
-                          type="text"
-                          value={v.imageUrl}
-                          onChange={(e) => updateVariant(idx, "imageUrl", e.target.value)}
-                          className={inputCls(false)}
-                          placeholder="/images/chair-oak.jpg"
-                        />
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeVariant(idx)}
-                      className="mt-5 text-[#6b7280] hover:text-[#0a0a0a] transition-colors text-lg leading-none"
-                      aria-label="Remove variant"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
+                    );
+                  });
+                })()}
 
                 {formErrors.variants && (
                   <p className="text-xs text-red-500">{formErrors.variants}</p>
@@ -434,7 +549,7 @@ export default function AdminPage() {
                   onClick={addVariant}
                   className="self-start px-4 py-2 border border-gray-200 text-sm hover:border-gray-400 transition-colors"
                 >
-                  Add Variant
+                  + Add Variant
                 </button>
               </div>
             </div>
@@ -517,6 +632,85 @@ export default function AdminPage() {
                         >
                           Delete
                         </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* ── Category Form ── */}
+      {catFormOpen && (
+        <section ref={catFormRef} className="px-8 pb-14">
+          <div className="border border-gray-200 p-8">
+            <p className="text-xs uppercase tracking-widest text-[#6b7280] mb-8">
+              {catFormMode === "add" ? "Add Category" : "Edit Category"}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <FormField label="Name" error={catFormErrors.name}>
+                <input type="text" value={catForm.name} onChange={(e) => catField("name", e.target.value)}
+                  className={inputCls(!!catFormErrors.name)} placeholder="Living Room" />
+              </FormField>
+              <FormField label="Slug" error={catFormErrors.slug}>
+                <input type="text" value={catForm.slug} onChange={(e) => catField("slug", e.target.value)}
+                  className={inputCls(!!catFormErrors.slug)} placeholder="living-room" />
+              </FormField>
+              <FormField label="Image URL" error={catFormErrors.imageUrl} wide>
+                <input type="text" value={catForm.imageUrl} onChange={(e) => catField("imageUrl", e.target.value)}
+                  className={inputCls(!!catFormErrors.imageUrl)} placeholder="/images/cat-living-room.jpg" />
+              </FormField>
+            </div>
+            {catFormErrors._ && <p className="mt-4 text-sm text-red-600">{catFormErrors._}</p>}
+            <div className="mt-8 flex gap-4">
+              <button onClick={handleSaveCat} disabled={catFormSaving}
+                className="px-6 py-3 bg-[#0a0a0a] text-white text-sm hover:bg-[#2a2a2a] disabled:opacity-50 transition-colors">
+                {catFormSaving ? "Saving…" : "Save Category"}
+              </button>
+              <button onClick={closeCatForm}
+                className="px-6 py-3 border border-gray-200 text-sm hover:border-gray-400 transition-colors">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Category Table ── */}
+      <section className="px-8 pb-24">
+        <div className="flex items-center justify-between mb-8">
+          <p className="text-xs uppercase tracking-widest text-[#6b7280]">Categories</p>
+          <button onClick={openAddCat}
+            className="px-5 py-2.5 border border-[#0a0a0a] text-sm hover:bg-gray-50 transition-colors">
+            Add Category
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left border-collapse">
+            <thead>
+              <tr className="border-b border-gray-100">
+                {["Name", "Slug", "Image URL", "Actions"].map((h) => (
+                  <th key={h} className="pb-3 pr-8 text-xs text-[#6b7280] uppercase tracking-widest last:pr-0">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {categories.length === 0 ? (
+                <tr><td colSpan={4} className="py-12 text-center text-[#6b7280] text-xs">No categories yet.</td></tr>
+              ) : (
+                categories.map((c) => (
+                  <tr key={c.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                    <td className="py-4 pr-8">{c.name}</td>
+                    <td className="py-4 pr-8 text-[#6b7280]">{c.slug}</td>
+                    <td className="py-4 pr-8 text-[#6b7280] truncate max-w-xs">{c.imageUrl || "—"}</td>
+                    <td className="py-4">
+                      <div className="flex gap-5">
+                        <button onClick={() => openEditCat(c)}
+                          className="text-[#0a0a0a] underline underline-offset-2 hover:opacity-60 transition-opacity">Edit</button>
+                        <button onClick={() => handleDeleteCat(c.id, c.name)}
+                          className="text-red-500 underline underline-offset-2 hover:opacity-60 transition-opacity">Delete</button>
                       </div>
                     </td>
                   </tr>

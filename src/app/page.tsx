@@ -4,19 +4,19 @@ import ProductImage from "@/components/ProductImage";
 
 const PLACEHOLDER = "#c4b5a0";
 
-const CATEGORIES = [
-  { label: "Living Room", value: "Sofa" },
-  { label: "Bedroom",     value: "Bed" },
-  { label: "Dining",      value: "Table" },
-  { label: "Office",      value: "Chair" },
-];
-
 async function getFeaturedProducts() {
   return prisma.product.findMany({ take: 4, orderBy: { id: "asc" } });
 }
 
+async function getCategories() {
+  return prisma.category.findMany({ orderBy: { name: "asc" } });
+}
+
 export default async function HomePage() {
-  const products = await getFeaturedProducts();
+  const [products, categories] = await Promise.all([
+    getFeaturedProducts(),
+    getCategories(),
+  ]);
 
   return (
     <div className="bg-white min-h-screen text-[#0a0a0a]">
@@ -52,12 +52,15 @@ export default async function HomePage() {
           </div>
         </div>
 
-        {/* Full-width hero image placeholder */}
-        <div
-          className="w-full"
-          style={{ background: PLACEHOLDER, aspectRatio: "16 / 6" }}
-          aria-label="Hero image"
-        />
+        {/* Full-width hero image */}
+        <div className="relative w-full" style={{ aspectRatio: "16 / 6" }}>
+          <ProductImage
+            src="/images/hero.jpg"
+            alt="Hero"
+            className="absolute inset-0 w-full h-full"
+          />
+          <div className="absolute inset-0 bg-black/20 pointer-events-none" />
+        </div>
       </section>
 
       {/* ── Categories ── */}
@@ -70,17 +73,25 @@ export default async function HomePage() {
         </h2>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {CATEGORIES.map(({ label, value }) => (
+          {categories.map((cat) => (
             <Link
-              key={value}
-              href={`/shop?category=${value}`}
+              key={cat.slug}
+              href={`/shop?category=${cat.slug}`}
               className="group flex flex-col gap-3"
             >
-              <div
-                className="w-full aspect-square group-hover:opacity-90 transition-opacity"
-                style={{ background: PLACEHOLDER }}
-              />
-              <span className="text-sm text-[#0a0a0a] text-center">{label}</span>
+              {cat.imageUrl ? (
+                <ProductImage
+                  src={cat.imageUrl}
+                  alt={cat.name}
+                  className="w-full aspect-square group-hover:opacity-90 transition-opacity"
+                />
+              ) : (
+                <div
+                  className="w-full aspect-square group-hover:opacity-90 transition-opacity"
+                  style={{ background: PLACEHOLDER }}
+                />
+              )}
+              <span className="text-sm text-[#0a0a0a] text-center">{cat.name}</span>
             </Link>
           ))}
         </div>

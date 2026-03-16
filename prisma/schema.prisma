@@ -40,3 +40,10 @@ model CartItem {
   user      User    @relation(fields: [userId], references: [id])
   product   Product @relation(fields: [productId], references: [id])
 }
+
+model Category {
+  id       Int    @id @default(autoincrement())
+  name     String @unique
+  imageUrl String @default("")
+  slug     String @unique
+}

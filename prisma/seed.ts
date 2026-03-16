@@ -151,7 +151,24 @@ async function main() {
     });
   }
 
-  console.log("Seeded: 2 users, 8 products");
+  const categories = [
+    { name: "Living Room", slug: "living-room", imageUrl: "/images/cat-living-room.jpg" },
+    { name: "Bedroom",     slug: "bedroom",     imageUrl: "/images/cat-bedroom.jpg" },
+    { name: "Dining",      slug: "dining",      imageUrl: "/images/cat-dining.jpg" },
+    { name: "Office",      slug: "office",      imageUrl: "/images/cat-office.jpg" },
+    { name: "Sofa",        slug: "sofa",        imageUrl: "/images/cat-sofa.jpg" },
+    { name: "Table",       slug: "table",       imageUrl: "/images/cat-table.jpg" },
+    { name: "Chair",       slug: "chair",       imageUrl: "/images/cat-chair.jpg" },
+  ];
+  for (const cat of categories) {
+    await prisma.category.upsert({
+      where: { slug: cat.slug },
+      update: {},
+      create: cat,
+    });
+  }
+
+  console.log("Seeded: 2 users, 8 products, 7 categories");
 }
 
 main()

@@ -12,6 +12,7 @@ const geist = Geist({
 export const metadata: Metadata = {
   title: "Furnish — Beautiful Furniture for Every Room",
   description: "Shop and plan your perfect room with Furnish.",
+  icons: { icon: "/images/favicon.png" },
 };
 
 export default function RootLayout({

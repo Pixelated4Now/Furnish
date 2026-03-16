@@ -8,13 +8,6 @@ import ProductImage from "@/components/ProductImage";
 
 const PLACEHOLDER = "#c4b5a0";
 
-const CATEGORIES = [
-  { label: "Decor",       value: "Decor" },
-  { label: "Bedroom",     value: "Bed" },
-  { label: "Living Room", value: "Sofa" },
-  { label: "Office",      value: "Chair" },
-];
-
 const SORT_OPTIONS = [
   { label: "Default",         value: "" },
   { label: "Name A–Z",        value: "name_asc" },
@@ -29,6 +22,13 @@ interface Product {
   price: number;
   category: string;
   imageUrl: string;
+}
+
+interface Category {
+  id: number;
+  name: string;
+  imageUrl: string;
+  slug: string;
 }
 
 function ProductCard({ product }: { product: Product }) {
@@ -82,16 +82,35 @@ function ShopContent() {
   const searchParams = useSearchParams();
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState(
     searchParams.get("category") ?? ""
   );
   const [sort, setSort] = useState("");
 
+  // Load categories on mount
+  useEffect(() => {
+    fetch("/api/categories")
+      .then((r) => r.json())
+      .then((d) => setCategories(Array.isArray(d) ? d : []))
+      .catch(() => setCategories([]));
+  }, []);
+
   useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams();
-    if (activeCategory) params.set("category", activeCategory);
+
+    // Find the category name matching the active slug, to pass to the products API
+    if (activeCategory) {
+      const matched = categories.find((c) => c.slug === activeCategory);
+      if (matched) {
+        params.set("category", matched.name);
+      } else if (categories.length === 0) {
+        // categories not yet loaded — pass the slug as-is and let the API handle it
+        params.set("category", activeCategory);
+      }
+    }
     if (sort) params.set("sort", sort);
 
     fetch(`/api/products?${params.toString()}`)
@@ -99,10 +118,10 @@ function ShopContent() {
       .then((data) => setProducts(data.products ?? []))
       .catch(() => setProducts([]))
       .finally(() => setLoading(false));
-  }, [activeCategory, sort]);
+  }, [activeCategory, sort, categories]);
 
-  function handleCategoryClick(value: string) {
-    const next = activeCategory === value ? "" : value;
+  function handleCategoryClick(slug: string) {
+    const next = activeCategory === slug ? "" : slug;
     setActiveCategory(next);
     const url = next ? `/shop?category=${next}` : "/shop";
     router.push(url, { scroll: false });
@@ -127,22 +146,50 @@ function ShopContent() {
       {/* ── Category Row ── */}
       <section className="px-8 pb-14">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {CATEGORIES.map(({ label, value }) => {
-            const active = activeCategory === value;
+          {/* All button */}
+          <button
+            onClick={() => handleCategoryClick("")}
+            className="group flex flex-col gap-3 text-left"
+          >
+            <ProductImage
+              src="/images/all.jpg"
+              alt="All categories"
+              className="w-full aspect-[3/4] group-hover:opacity-90 transition-opacity"
+            />
+            <span
+              className={`text-sm text-center w-full transition-colors ${
+                activeCategory === ""
+                  ? "text-[#0a0a0a] underline underline-offset-4"
+                  : "text-[#6b7280] hover:text-[#0a0a0a]"
+              }`}
+            >
+              All
+            </span>
+          </button>
+
+          {categories.map((cat) => {
+            const active = activeCategory === cat.slug;
             return (
               <button
-                key={value}
-                onClick={() => handleCategoryClick(value)}
+                key={cat.slug}
+                onClick={() => handleCategoryClick(cat.slug)}
                 className="group flex flex-col gap-3 text-left"
               >
-                <div
-                  className="w-full group-hover:opacity-90 transition-opacity"
-                  style={{
-                    background: PLACEHOLDER,
-                    aspectRatio: "3 / 4",
-                    opacity: active ? 1 : undefined,
-                  }}
-                />
+                {cat.imageUrl ? (
+                  <ProductImage
+                    src={cat.imageUrl}
+                    alt={cat.name}
+                    className="w-full aspect-[3/4] group-hover:opacity-90 transition-opacity"
+                  />
+                ) : (
+                  <div
+                    className="w-full group-hover:opacity-90 transition-opacity"
+                    style={{
+                      background: PLACEHOLDER,
+                      aspectRatio: "3 / 4",
+                    }}
+                  />
+                )}
                 <span
                   className={`text-sm text-center w-full transition-colors ${
                     active
@@ -150,7 +197,7 @@ function ShopContent() {
                       : "text-[#6b7280] hover:text-[#0a0a0a]"
                   }`}
                 >
-                  {label}
+                  {cat.name}
                 </span>
               </button>
             );
