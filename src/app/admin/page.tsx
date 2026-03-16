@@ -338,7 +338,7 @@ export default function AdminPage() {
   if (!authChecked) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="h-4 w-32 bg-gray-100 rounded animate-pulse" />
+        <div className="w-8 h-8 rounded-full border-2 border-[#0a0a0a] border-t-transparent animate-spin" />
       </div>
     );
   }
@@ -605,7 +605,7 @@ export default function AdminPage() {
               {products.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-[#6b7280] text-xs">
-                    No products yet.
+                    No products yet. Add your first product.
                   </td>
                 </tr>
               ) : (
@@ -698,7 +698,7 @@ export default function AdminPage() {
             </thead>
             <tbody>
               {categories.length === 0 ? (
-                <tr><td colSpan={4} className="py-12 text-center text-[#6b7280] text-xs">No categories yet.</td></tr>
+                <tr><td colSpan={4} className="py-12 text-center text-[#6b7280] text-xs">No categories yet. Add your first category.</td></tr>
               ) : (
                 categories.map((c) => (
                   <tr key={c.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">

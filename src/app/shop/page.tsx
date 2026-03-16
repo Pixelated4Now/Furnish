@@ -84,6 +84,8 @@ function ShopContent() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [activeCategory, setActiveCategory] = useState(
     searchParams.get("category") ?? ""
   );
@@ -91,14 +93,17 @@ function ShopContent() {
 
   // Load categories on mount
   useEffect(() => {
+    setCategoriesLoading(true);
     fetch("/api/categories")
       .then((r) => r.json())
       .then((d) => setCategories(Array.isArray(d) ? d : []))
-      .catch(() => setCategories([]));
+      .catch(() => setCategories([]))
+      .finally(() => setCategoriesLoading(false));
   }, []);
 
-  useEffect(() => {
+  function loadProducts() {
     setLoading(true);
+    setFetchError(false);
     const params = new URLSearchParams();
 
     // Find the category name matching the active slug, to pass to the products API
@@ -116,8 +121,13 @@ function ShopContent() {
     fetch(`/api/products?${params.toString()}`)
       .then((r) => r.json())
       .then((data) => setProducts(data.products ?? []))
-      .catch(() => setProducts([]))
+      .catch(() => { setProducts([]); setFetchError(true); })
       .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    loadProducts();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCategory, sort, categories]);
 
   function handleCategoryClick(slug: string) {
@@ -145,11 +155,11 @@ function ShopContent() {
 
       {/* ── Category Row ── */}
       <section className="px-8 pb-14">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="flex overflow-x-auto gap-4 pb-2 md:grid md:grid-cols-4 md:overflow-visible">
           {/* All button */}
           <button
             onClick={() => handleCategoryClick("")}
-            className="group flex flex-col gap-3 text-left"
+            className="group flex flex-col gap-3 text-left shrink-0 w-32 md:w-auto"
           >
             <ProductImage
               src="/images/all.jpg"
@@ -167,41 +177,51 @@ function ShopContent() {
             </span>
           </button>
 
-          {categories.map((cat) => {
-            const active = activeCategory === cat.slug;
-            return (
-              <button
-                key={cat.slug}
-                onClick={() => handleCategoryClick(cat.slug)}
-                className="group flex flex-col gap-3 text-left"
-              >
-                {cat.imageUrl ? (
-                  <ProductImage
-                    src={cat.imageUrl}
-                    alt={cat.name}
-                    className="w-full aspect-[3/4] group-hover:opacity-90 transition-opacity"
-                  />
-                ) : (
+          {categoriesLoading
+            ? Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="group flex flex-col gap-3 text-left shrink-0 w-32 md:w-auto">
                   <div
-                    className="w-full group-hover:opacity-90 transition-opacity"
-                    style={{
-                      background: PLACEHOLDER,
-                      aspectRatio: "3 / 4",
-                    }}
+                    className="w-full animate-pulse"
+                    style={{ background: "#c4b5a0", aspectRatio: "3 / 4" }}
                   />
-                )}
-                <span
-                  className={`text-sm text-center w-full transition-colors ${
-                    active
-                      ? "text-[#0a0a0a] underline underline-offset-4"
-                      : "text-[#6b7280] hover:text-[#0a0a0a]"
-                  }`}
-                >
-                  {cat.name}
-                </span>
-              </button>
-            );
-          })}
+                  <div className="h-3 w-12 mx-auto bg-gray-200 animate-pulse rounded" />
+                </div>
+              ))
+            : categories.map((cat) => {
+                const active = activeCategory === cat.slug;
+                return (
+                  <button
+                    key={cat.slug}
+                    onClick={() => handleCategoryClick(cat.slug)}
+                    className="group flex flex-col gap-3 text-left shrink-0 w-32 md:w-auto"
+                  >
+                    {cat.imageUrl ? (
+                      <ProductImage
+                        src={cat.imageUrl}
+                        alt={cat.name}
+                        className="w-full aspect-[3/4] group-hover:opacity-90 transition-opacity"
+                      />
+                    ) : (
+                      <div
+                        className="w-full group-hover:opacity-90 transition-opacity"
+                        style={{
+                          background: PLACEHOLDER,
+                          aspectRatio: "3 / 4",
+                        }}
+                      />
+                    )}
+                    <span
+                      className={`text-sm text-center w-full transition-colors ${
+                        active
+                          ? "text-[#0a0a0a] underline underline-offset-4"
+                          : "text-[#6b7280] hover:text-[#0a0a0a]"
+                      }`}
+                    >
+                      {cat.name}
+                    </span>
+                  </button>
+                );
+              })}
         </div>
       </section>
 
@@ -233,7 +253,7 @@ function ShopContent() {
               <div key={i} className="flex flex-col gap-4">
                 <div
                   className="w-full animate-pulse"
-                  style={{ background: "#e5e7eb", aspectRatio: "1 / 1" }}
+                  style={{ background: "#c4b5a0", aspectRatio: "1 / 1" }}
                 />
                 <div className="flex flex-col gap-2">
                   <div className="h-3 w-16 bg-gray-200 animate-pulse rounded" />
@@ -243,9 +263,19 @@ function ShopContent() {
               </div>
             ))}
           </div>
+        ) : fetchError ? (
+          <div className="py-24 text-center">
+            <p className="text-[#6b7280] text-sm mb-4">Failed to load products.</p>
+            <button
+              onClick={loadProducts}
+              className="text-sm text-[#0a0a0a] underline underline-offset-4 hover:opacity-60 transition-opacity"
+            >
+              Try again
+            </button>
+          </div>
         ) : products.length === 0 ? (
           <div className="py-24 text-center">
-            <p className="text-[#6b7280] text-sm">No products found.</p>
+            <p className="text-[#6b7280] text-sm">No products found in this category.</p>
             {activeCategory && (
               <button
                 onClick={() => handleCategoryClick(activeCategory)}

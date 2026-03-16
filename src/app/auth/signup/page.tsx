@@ -68,7 +68,7 @@ export default function SignupPage() {
               required
               autoComplete="name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => { setName(e.target.value); if (error) setError(""); }}
               className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition"
               placeholder="Jane Smith"
             />
@@ -84,7 +84,7 @@ export default function SignupPage() {
               required
               autoComplete="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => { setEmail(e.target.value); if (error) setError(""); }}
               className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition"
               placeholder="you@example.com"
             />
@@ -100,7 +100,7 @@ export default function SignupPage() {
               required
               autoComplete="new-password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => { setPassword(e.target.value); if (error) setError(""); }}
               className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition"
               placeholder="••••••••"
             />
@@ -116,7 +116,7 @@ export default function SignupPage() {
               required
               autoComplete="new-password"
               value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
+              onChange={(e) => { setConfirm(e.target.value); if (error) setError(""); }}
               className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition"
               placeholder="••••••••"
             />

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
@@ -540,32 +541,46 @@ function Scene3D({
 
 // ── Main component ─────────────────────────────────────────────────────────
 export default function PlannerPage() {
-  const [ready, setReady]     = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const [view, setView]       = useState<"2d" | "3d">("3d");
+  const [ready, setReady]         = useState(false);
+  const [mounted, setMounted]     = useState(false);
+  const [isMobile, setIsMobile]   = useState(false);
+  const [view, setView]           = useState<"2d" | "3d">("3d");
 
   const [roomW, setRoomW]   = useState(500);
   const [roomD, setRoomD]   = useState(400);
   const [setupW, setSetupW] = useState("500");
   const [setupD, setSetupD] = useState("400");
 
-  const [cvs, setCvs]               = useState({ w: 800, h: 600 });
-  const containerRef                = useRef<HTMLDivElement>(null);
-  const [products, setProducts]     = useState<Product[]>([]);
-  const [placed, setPlaced]         = useState<PlacedItem[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const dragProduct                 = useRef<Product | null>(null);
-  const [cartMsg, setCartMsg]       = useState<string | null>(null);
-  const cartMsgTimer                = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const addItem                     = useCartStore((s) => s.addItem);
+  const [cvs, setCvs]                   = useState({ w: 800, h: 600 });
+  const containerRef                    = useRef<HTMLDivElement>(null);
+  const [products, setProducts]         = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productsError, setProductsError]     = useState(false);
+  const [placed, setPlaced]             = useState<PlacedItem[]>([]);
+  const [selectedId, setSelectedId]     = useState<string | null>(null);
+  const dragProduct                     = useRef<Product | null>(null);
+  const [cartMsg, setCartMsg]           = useState<string | null>(null);
+  const cartMsgTimer                    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const addItem                         = useCartStore((s) => s.addItem);
 
   // ── Effects ──────────────────────────────────────────────────────────────
-  useEffect(() => setMounted(true), []);
-
   useEffect(() => {
+    setMounted(true);
+    setIsMobile(window.innerWidth < 768);
+  }, []);
+
+  function loadProducts() {
+    setProductsLoading(true);
+    setProductsError(false);
     fetch("/api/products")
       .then((r) => r.json())
-      .then((d) => setProducts(d.products ?? []));
+      .then((d) => setProducts(d.products ?? []))
+      .catch(() => { setProducts([]); setProductsError(true); })
+      .finally(() => setProductsLoading(false));
+  }
+
+  useEffect(() => {
+    loadProducts();
   }, []);
 
   useEffect(() => {
@@ -676,6 +691,20 @@ export default function PlannerPage() {
     try { return JSON.parse(selectedItem?.variants ?? "[]"); } catch { return []; }
   })();
 
+  // ── Mobile guard ─────────────────────────────────────────────────────────
+  if (mounted && isMobile) {
+    return (
+      <div className="min-h-[calc(100vh-76px)] flex items-center justify-center bg-white px-8">
+        <div className="text-center">
+          <p className="text-[#0a0a0a] text-base mb-4">The room planner works best on a larger screen.</p>
+          <Link href="/shop" className="text-sm text-[#0a0a0a] underline underline-offset-4 hover:opacity-60 transition-opacity">
+            Browse Furniture
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   // ── Room setup screen ─────────────────────────────────────────────────────
   if (!ready) {
     return (
@@ -753,26 +782,45 @@ export default function PlannerPage() {
         {/* ── Left sidebar ── */}
         <aside className="w-48 shrink-0 border-r border-gray-100 overflow-y-auto">
           <p className="px-3 pt-4 pb-2 text-xs uppercase tracking-widest text-[#6b7280]">Furniture</p>
-          {Object.entries(grouped).map(([cat, prods]) => (
-            <div key={cat}>
-              <p className="px-3 py-1 text-[10px] uppercase tracking-wider text-[#6b7280] bg-gray-50">{cat}</p>
-              {prods.map((product) => (
-                <div
-                  key={product.id}
-                  draggable
-                  onDragStart={(e) => {
-                    dragProduct.current = product;
-                    e.dataTransfer.setData("text/plain", String(product.id));
-                    e.dataTransfer.effectAllowed = "copy";
-                  }}
-                  className="flex flex-col gap-1 p-2 cursor-grab active:cursor-grabbing hover:bg-gray-50 transition-colors select-none"
-                >
-                  <ProductImage src={product.imageUrl} alt={product.name} className="w-full aspect-square" />
-                  <p className="text-[11px] leading-snug truncate">{product.name}</p>
-                </div>
-              ))}
+          {productsLoading ? (
+            Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex flex-col gap-1 p-2">
+                <div className="w-full aspect-square bg-gray-200 animate-pulse" />
+                <div className="h-2.5 w-3/4 bg-gray-200 animate-pulse rounded" />
+              </div>
+            ))
+          ) : productsError ? (
+            <div className="px-3 py-4 text-center">
+              <p className="text-[10px] text-[#6b7280] mb-2">Failed to load furniture.</p>
+              <button
+                onClick={loadProducts}
+                className="text-[10px] text-[#0a0a0a] underline underline-offset-2 hover:opacity-60 transition-opacity"
+              >
+                Try again
+              </button>
             </div>
-          ))}
+          ) : (
+            Object.entries(grouped).map(([cat, prods]) => (
+              <div key={cat}>
+                <p className="px-3 py-1 text-[10px] uppercase tracking-wider text-[#6b7280] bg-gray-50">{cat}</p>
+                {prods.map((product) => (
+                  <div
+                    key={product.id}
+                    draggable
+                    onDragStart={(e) => {
+                      dragProduct.current = product;
+                      e.dataTransfer.setData("text/plain", String(product.id));
+                      e.dataTransfer.effectAllowed = "copy";
+                    }}
+                    className="flex flex-col gap-1 p-2 cursor-grab active:cursor-grabbing hover:bg-gray-50 transition-colors select-none"
+                  >
+                    <ProductImage src={product.imageUrl} alt={product.name} className="w-full aspect-square" />
+                    <p className="text-[11px] leading-snug truncate">{product.name}</p>
+                  </div>
+                ))}
+              </div>
+            ))
+          )}
         </aside>
 
         {/* ── Canvas area ── */}
@@ -800,6 +848,14 @@ export default function PlannerPage() {
                   onUpdatePos={updateItemPos}
                 />
               </Canvas>
+
+              {placed.length === 0 && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <p className="text-sm text-[#6b7280] bg-white/80 px-4 py-2">
+                    Drag furniture from the sidebar to place it.
+                  </p>
+                </div>
+              )}
 
               {view === "3d" && (
                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1.5 text-xs text-[#6b7280] bg-white/80 pointer-events-none">

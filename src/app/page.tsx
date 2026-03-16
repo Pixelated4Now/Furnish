@@ -56,7 +56,7 @@ export default async function HomePage() {
         <div className="relative w-full" style={{ aspectRatio: "16 / 6" }}>
           <ProductImage
             src="/images/hero.jpg"
-            alt="Hero"
+            alt="Furnished living room"
             className="absolute inset-0 w-full h-full"
           />
           <div className="absolute inset-0 bg-black/20 pointer-events-none" />
