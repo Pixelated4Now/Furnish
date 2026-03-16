@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { useCartStore } from "@/store/cartStore";
-
-const PLACEHOLDER = "#c4b5a0";
+import ProductImage from "@/components/ProductImage";
 
 export default function CartPage() {
   const { items, removeItem, updateQuantity, getTotalPrice } = useCartStore();
@@ -43,10 +42,10 @@ export default function CartPage() {
 
                   <div className="flex gap-6 items-start">
                     {/* Thumbnail */}
-                    <div
+                    <ProductImage
+                      src={item.imageUrl}
+                      alt={item.name}
                       className="shrink-0 w-24 h-24 sm:w-28 sm:h-28"
-                      style={{ background: PLACEHOLDER }}
-                      aria-label={item.name}
                     />
 
                     {/* Details + controls */}

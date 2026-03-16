@@ -35,7 +35,11 @@ async function main() {
       modelUrl: "/models/product-1.glb",
       width: 220,
       depth: 90,
-      variants: JSON.stringify([{ color: "Charcoal Grey" }, { color: "Cream White" }, { color: "Navy Blue" }]),
+      variants: JSON.stringify([
+        { name: "Charcoal Grey", modelUrl: "/models/product-1-charcoal.glb", imageUrl: "/images/product-1-charcoal.jpg" },
+        { name: "Cream White",   modelUrl: "/models/product-1-cream.glb",    imageUrl: "/images/product-1-cream.jpg" },
+        { name: "Navy Blue",     modelUrl: "/models/product-1-navy.glb",     imageUrl: "/images/product-1-navy.jpg" },
+      ]),
     },
     {
       name: "Velvet Chesterfield Sofa",
@@ -46,7 +50,11 @@ async function main() {
       modelUrl: "/models/product-2.glb",
       width: 200,
       depth: 85,
-      variants: JSON.stringify([{ color: "Emerald Green" }, { color: "Midnight Blue" }, { color: "Burgundy" }]),
+      variants: JSON.stringify([
+        { name: "Emerald Green", modelUrl: "/models/product-2-emerald.glb",  imageUrl: "/images/product-2-emerald.jpg" },
+        { name: "Midnight Blue", modelUrl: "/models/product-2-midnight.glb", imageUrl: "/images/product-2-midnight.jpg" },
+        { name: "Burgundy",      modelUrl: "/models/product-2-burgundy.glb", imageUrl: "/images/product-2-burgundy.jpg" },
+      ]),
     },
     {
       name: "Modular Corner Sofa",
@@ -57,7 +65,10 @@ async function main() {
       modelUrl: "/models/product-3.glb",
       width: 280,
       depth: 160,
-      variants: JSON.stringify([{ color: "Light Grey" }, { color: "Beige" }]),
+      variants: JSON.stringify([
+        { name: "Light Grey", modelUrl: "/models/product-3-lightgrey.glb", imageUrl: "/images/product-3-lightgrey.jpg" },
+        { name: "Beige",      modelUrl: "/models/product-3-beige.glb",     imageUrl: "/images/product-3-beige.jpg" },
+      ]),
     },
     {
       name: "Solid Oak Dining Table",
@@ -68,7 +79,10 @@ async function main() {
       modelUrl: "/models/product-4.glb",
       width: 180,
       depth: 90,
-      variants: JSON.stringify([{ color: "Natural Oak" }, { color: "Dark Walnut" }]),
+      variants: JSON.stringify([
+        { name: "Natural Oak",  modelUrl: "/models/product-4-oak.glb",    imageUrl: "/images/product-4-oak.jpg" },
+        { name: "Dark Walnut",  modelUrl: "/models/product-4-walnut.glb", imageUrl: "/images/product-4-walnut.jpg" },
+      ]),
     },
     {
       name: "Marble Coffee Table",
@@ -79,7 +93,10 @@ async function main() {
       modelUrl: "/models/product-5.glb",
       width: 120,
       depth: 60,
-      variants: JSON.stringify([{ color: "White Marble" }, { color: "Black Marble" }]),
+      variants: JSON.stringify([
+        { name: "White Marble", modelUrl: "/models/product-5-white.glb", imageUrl: "/images/product-5-white.jpg" },
+        { name: "Black Marble", modelUrl: "/models/product-5-black.glb", imageUrl: "/images/product-5-black.jpg" },
+      ]),
     },
     {
       name: "Industrial Desk",
@@ -90,7 +107,10 @@ async function main() {
       modelUrl: "/models/product-6.glb",
       width: 140,
       depth: 70,
-      variants: JSON.stringify([{ color: "Pine" }, { color: "Walnut" }]),
+      variants: JSON.stringify([
+        { name: "Pine",   modelUrl: "/models/product-6-pine.glb",   imageUrl: "/images/product-6-pine.jpg" },
+        { name: "Walnut", modelUrl: "/models/product-6-walnut.glb", imageUrl: "/images/product-6-walnut.jpg" },
+      ]),
     },
     {
       name: "Ergonomic Accent Chair",
@@ -101,7 +121,11 @@ async function main() {
       modelUrl: "/models/product-7.glb",
       width: 75,
       depth: 80,
-      variants: JSON.stringify([{ color: "Mustard Yellow" }, { color: "Terracotta" }, { color: "Forest Green" }]),
+      variants: JSON.stringify([
+        { name: "Mustard Yellow", modelUrl: "/models/product-7-mustard.glb",    imageUrl: "/images/product-7-mustard.jpg" },
+        { name: "Terracotta",     modelUrl: "/models/product-7-terracotta.glb", imageUrl: "/images/product-7-terracotta.jpg" },
+        { name: "Forest Green",   modelUrl: "/models/product-7-forest.glb",     imageUrl: "/images/product-7-forest.jpg" },
+      ]),
     },
     {
       name: "Woven Rattan Lounge Chair",
@@ -112,7 +136,10 @@ async function main() {
       modelUrl: "/models/product-8.glb",
       width: 70,
       depth: 75,
-      variants: JSON.stringify([{ color: "Natural Rattan" }, { color: "White" }]),
+      variants: JSON.stringify([
+        { name: "Natural Rattan", modelUrl: "/models/product-8-natural.glb", imageUrl: "/images/product-8-natural.jpg" },
+        { name: "White",          modelUrl: "/models/product-8-white.glb",   imageUrl: "/images/product-8-white.jpg" },
+      ]),
     },
   ];
 

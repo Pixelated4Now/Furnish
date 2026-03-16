@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import ProductImage from "@/components/ProductImage";
 
 const PLACEHOLDER = "#c4b5a0";
 
@@ -97,10 +98,10 @@ export default async function HomePage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-14">
           {products.map((product) => (
             <Link key={product.id} href="/shop" className="group flex flex-col gap-4">
-              <div
-                className="w-full group-hover:opacity-90 transition-opacity"
-                style={{ background: PLACEHOLDER, aspectRatio: "3 / 2" }}
-                aria-label={product.name}
+              <ProductImage
+                src={product.imageUrl}
+                alt={product.name}
+                className="w-full aspect-[3/2] group-hover:opacity-90 transition-opacity"
               />
               <div className="flex flex-col gap-1">
                 <span className="text-xs text-[#6b7280] uppercase tracking-wider">

@@ -6,6 +6,12 @@ import Link from "next/link";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
+interface Variant {
+  name: string;
+  modelUrl: string;
+  imageUrl: string;
+}
+
 interface Product {
   id: number;
   name: string;
@@ -61,8 +67,7 @@ export default function AdminPage() {
   const [formSaving, setFormSaving] = useState(false);
 
   // Variant builder state
-  const [variantColors, setVariantColors] = useState<string[]>([]);
-  const [variantInput, setVariantInput] = useState("");
+  const [variants, setVariants] = useState<Variant[]>([]);
 
   // Feedback
   const [successMsg, setSuccessMsg] = useState("");
@@ -106,8 +111,7 @@ export default function AdminPage() {
 
   function openAdd() {
     setForm(EMPTY_FORM);
-    setVariantColors([]);
-    setVariantInput("");
+    setVariants([]);
     setFormErrors({});
     setFormMode("add");
     setEditingId(null);
@@ -127,12 +131,15 @@ export default function AdminPage() {
       depth: String(p.depth),
     });
     try {
-      const parsed: { color: string }[] = JSON.parse(p.variants);
-      setVariantColors(parsed.map((v) => v.color).filter(Boolean));
+      const parsed: Variant[] = JSON.parse(p.variants);
+      setVariants(Array.isArray(parsed) ? parsed.map((v) => ({
+        name: v.name ?? "",
+        modelUrl: v.modelUrl ?? "",
+        imageUrl: v.imageUrl ?? "",
+      })) : []);
     } catch {
-      setVariantColors([]);
+      setVariants([]);
     }
-    setVariantInput("");
     setFormErrors({});
     setFormMode("edit");
     setEditingId(p.id);
@@ -143,9 +150,20 @@ export default function AdminPage() {
   function closeForm() {
     setFormOpen(false);
     setEditingId(null);
-    setVariantColors([]);
-    setVariantInput("");
+    setVariants([]);
     setFormErrors({});
+  }
+
+  function updateVariant(idx: number, key: keyof Variant, value: string) {
+    setVariants((prev) => prev.map((v, i) => i === idx ? { ...v, [key]: value } : v));
+  }
+
+  function removeVariant(idx: number) {
+    setVariants((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function addVariant() {
+    setVariants((prev) => [...prev, { name: "", modelUrl: "", imageUrl: "" }]);
   }
 
   function validate() {
@@ -157,6 +175,8 @@ export default function AdminPage() {
     if (!form.modelUrl.trim()) errs.modelUrl = "Model URL is required";
     if (!form.width || isNaN(Number(form.width))) errs.width = "Valid width required";
     if (!form.depth || isNaN(Number(form.depth))) errs.depth = "Valid depth required";
+    const names = variants.map((v) => v.name.trim()).filter(Boolean);
+    if (new Set(names).size !== names.length) errs.variants = "Duplicate variant names are not allowed";
     return errs;
   }
 
@@ -174,7 +194,11 @@ export default function AdminPage() {
       modelUrl: form.modelUrl.trim(),
       width: Number(form.width),
       depth: Number(form.depth),
-      variants: JSON.stringify(variantColors.map((c) => ({ color: c }))),
+      variants: JSON.stringify(variants.map((v) => ({
+        name: v.name.trim(),
+        modelUrl: v.modelUrl.trim(),
+        imageUrl: v.imageUrl.trim(),
+      }))),
     };
 
     const url = formMode === "edit" ? `/api/admin/products/${editingId}` : "/api/admin/products";
@@ -350,65 +374,68 @@ export default function AdminPage() {
               </FormField>
 
               {/* Variants — full width builder */}
-              <div className="sm:col-span-2 flex flex-col gap-1.5">
+              <div className="sm:col-span-2 flex flex-col gap-3">
                 <label className="text-xs text-[#6b7280] uppercase tracking-wider">
-                  Variants (Color)
+                  Variants
                 </label>
 
-                {/* Existing tags */}
-                {variantColors.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-1">
-                    {variantColors.map((color) => (
-                      <span
-                        key={color}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 border border-gray-200 text-xs text-[#0a0a0a]"
-                      >
-                        {color}
-                        <button
-                          type="button"
-                          onClick={() => setVariantColors((prev) => prev.filter((c) => c !== color))}
-                          className="text-[#6b7280] hover:text-[#0a0a0a] transition-colors leading-none"
-                          aria-label={`Remove ${color}`}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
+                {/* Variant card rows */}
+                {variants.map((v, idx) => (
+                  <div key={idx} className="flex gap-2 items-start border border-gray-100 p-3">
+                    <div className="flex-1 grid grid-cols-3 gap-2">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-[#6b7280] uppercase tracking-wider">Name</span>
+                        <input
+                          type="text"
+                          value={v.name}
+                          onChange={(e) => updateVariant(idx, "name", e.target.value)}
+                          className={inputCls(false)}
+                          placeholder="Oak"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-[#6b7280] uppercase tracking-wider">Model URL</span>
+                        <input
+                          type="text"
+                          value={v.modelUrl}
+                          onChange={(e) => updateVariant(idx, "modelUrl", e.target.value)}
+                          className={inputCls(false)}
+                          placeholder="/models/chair-oak.glb"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-[#6b7280] uppercase tracking-wider">Image URL</span>
+                        <input
+                          type="text"
+                          value={v.imageUrl}
+                          onChange={(e) => updateVariant(idx, "imageUrl", e.target.value)}
+                          className={inputCls(false)}
+                          placeholder="/images/chair-oak.jpg"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeVariant(idx)}
+                      className="mt-5 text-[#6b7280] hover:text-[#0a0a0a] transition-colors text-lg leading-none"
+                      aria-label="Remove variant"
+                    >
+                      ×
+                    </button>
                   </div>
+                ))}
+
+                {formErrors.variants && (
+                  <p className="text-xs text-red-500">{formErrors.variants}</p>
                 )}
 
-                {/* Add input */}
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={variantInput}
-                    onChange={(e) => setVariantInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key !== "Enter") return;
-                      e.preventDefault();
-                      const val = variantInput.trim();
-                      if (val && !variantColors.includes(val)) {
-                        setVariantColors((prev) => [...prev, val]);
-                      }
-                      setVariantInput("");
-                    }}
-                    className={inputCls(false)}
-                    placeholder="e.g. Oak"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const val = variantInput.trim();
-                      if (val && !variantColors.includes(val)) {
-                        setVariantColors((prev) => [...prev, val]);
-                      }
-                      setVariantInput("");
-                    }}
-                    className="shrink-0 px-4 py-2 border border-gray-200 text-sm hover:border-gray-400 transition-colors"
-                  >
-                    Add
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={addVariant}
+                  className="self-start px-4 py-2 border border-gray-200 text-sm hover:border-gray-400 transition-colors"
+                >
+                  Add Variant
+                </button>
               </div>
             </div>
 

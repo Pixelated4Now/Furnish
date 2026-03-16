@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useCartStore } from "@/store/cartStore";
+import ProductImage from "@/components/ProductImage";
 
 const PLACEHOLDER = "#c4b5a0";
 
@@ -50,10 +51,10 @@ function ProductCard({ product }: { product: Product }) {
     <div className="group flex flex-col gap-4">
       {/* Image + hover button */}
       <div className="relative overflow-hidden">
-        <div
-          className="w-full group-hover:opacity-90 transition-opacity"
-          style={{ background: PLACEHOLDER, aspectRatio: "1 / 1" }}
-          aria-label={product.name}
+        <ProductImage
+          src={product.imageUrl}
+          alt={product.name}
+          className="w-full aspect-square group-hover:opacity-90 transition-opacity"
         />
         <button
           onClick={handleAdd}
