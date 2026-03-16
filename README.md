@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
@@ -34,3 +35,7 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+=======
+# Furniture-Website-with-Product-Visualization
+A web-based application to enhance the in-store customer experience. The application will allow designers to work with customers to visualize how selected  furniture items (chairs, dining tables, side tables, etc.) would look in their rooms, to help customers make informed  choices about whether the furniture fits both spatially and aesthetically. 
+>>>>>>> ed5826d39d6d7ce1bda404c49a8038e71345866f
