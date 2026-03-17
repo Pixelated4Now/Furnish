@@ -7,6 +7,7 @@ import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import ProductImage from "@/components/ProductImage";
 import { useCartStore } from "@/store/cartStore";
+import { useAuth } from "@/context/AuthContext";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const LABEL_PAD = 44;
@@ -28,6 +29,28 @@ interface PlacedItem {
   rotation: number; // 0 | 90 | 180 | 270
   activeVariant?: Variant;
   variants: string; imageUrl: string; modelUrl: string;
+}
+
+interface DesignRecord {
+  id: number;
+  name: string;
+  roomWidth: number;
+  roomDepth: number;
+  items: string;
+  updatedAt: string;
+  createdAt: string;
+}
+
+// ── Helper: relative time ──────────────────────────────────────────────────
+function formatRelativeTime(isoString: string): string {
+  const diffMs = Date.now() - new Date(isoString).getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHour = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHour / 24);
+  if (diffDay > 0) return `Updated ${diffDay} day${diffDay !== 1 ? "s" : ""} ago`;
+  if (diffHour > 0) return `Updated ${diffHour} hour${diffHour !== 1 ? "s" : ""} ago`;
+  if (diffMin > 0) return `Updated ${diffMin} minute${diffMin !== 1 ? "s" : ""} ago`;
+  return "Updated just now";
 }
 
 // ── Pure helpers ───────────────────────────────────────────────────────────
@@ -541,33 +564,97 @@ function Scene3D({
 
 // ── Main component ─────────────────────────────────────────────────────────
 export default function PlannerPage() {
-  const [ready, setReady]         = useState(false);
-  const [mounted, setMounted]     = useState(false);
-  const [isMobile, setIsMobile]   = useState(false);
-  const [view, setView]           = useState<"2d" | "3d">("3d");
+  const { user, loading: authLoading } = useAuth();
+
+  const [screen, setScreen]   = useState<"select" | "setup" | "planner">("select");
+  const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [view, setView]       = useState<"2d" | "3d">("3d");
 
   const [roomW, setRoomW]   = useState(500);
   const [roomD, setRoomD]   = useState(400);
   const [setupW, setSetupW] = useState("500");
   const [setupD, setSetupD] = useState("400");
 
-  const [cvs, setCvs]                   = useState({ w: 800, h: 600 });
-  const containerRef                    = useRef<HTMLDivElement>(null);
-  const [products, setProducts]         = useState<Product[]>([]);
+  // ── Design state ────────────────────────────────────────────────────────
+  const [currentDesignId, setCurrentDesignId]     = useState<number | null>(null);
+  const [currentDesignName, setCurrentDesignName] = useState("Untitled Design");
+  const [saveStatus, setSaveStatus]               = useState<"idle" | "saving" | "saved">("idle");
+  const [isEditingName, setIsEditingName]         = useState(false);
+  const [nameEditValue, setNameEditValue]         = useState("");
+
+  // ── Design selection screen ─────────────────────────────────────────────
+  const [designs, setDesigns]           = useState<DesignRecord[]>([]);
+  const [designsLoading, setDesignsLoading] = useState(false);
+
+  // ── Planner state ───────────────────────────────────────────────────────
+  const [cvs, setCvs]                         = useState({ w: 800, h: 600 });
+  const containerRef                          = useRef<HTMLDivElement>(null);
+  const [products, setProducts]               = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError]     = useState(false);
-  const [placed, setPlaced]             = useState<PlacedItem[]>([]);
-  const [selectedId, setSelectedId]     = useState<string | null>(null);
-  const dragProduct                     = useRef<Product | null>(null);
-  const [cartMsg, setCartMsg]           = useState<string | null>(null);
-  const cartMsgTimer                    = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const addItem                         = useCartStore((s) => s.addItem);
+  const [placed, setPlaced]                   = useState<PlacedItem[]>([]);
+  const [selectedId, setSelectedId]           = useState<string | null>(null);
+  const dragProduct                           = useRef<Product | null>(null);
+  const [cartMsg, setCartMsg]                 = useState<string | null>(null);
+  const cartMsgTimer                          = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const addItem                               = useCartStore((s) => s.addItem);
+
+  // ── Auto-save refs ──────────────────────────────────────────────────────
+  const currentDesignIdRef  = useRef<number | null>(null);
+  const autoSaveActiveRef   = useRef(false);
+  const saveTimerRef        = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useLayoutEffect(() => { currentDesignIdRef.current = currentDesignId; }, [currentDesignId]);
 
   // ── Effects ──────────────────────────────────────────────────────────────
   useEffect(() => {
     setMounted(true);
     setIsMobile(window.innerWidth < 768);
   }, []);
+
+  // Fetch designs when on select screen and user is logged in
+  useEffect(() => {
+    if (screen !== "select" || !user) return;
+    setDesignsLoading(true);
+    fetch("/api/designs")
+      .then((r) => r.json())
+      .then((d) => setDesigns((d.designs ?? []).slice(0, 6)))
+      .catch(() => setDesigns([]))
+      .finally(() => setDesignsLoading(false));
+  }, [screen, user]);
+
+  // Auto-save: fires when placed items change, debounced 1500ms
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!autoSaveActiveRef.current) return;
+    const designId = currentDesignIdRef.current;
+    if (designId === null) return;
+
+    setSaveStatus("saving");
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+
+    saveTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/designs/${designId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: JSON.stringify(placed) }),
+        });
+        if (res.ok) {
+          setSaveStatus("saved");
+          setTimeout(() => setSaveStatus("idle"), 2000);
+        } else {
+          setSaveStatus("idle");
+        }
+      } catch {
+        setSaveStatus("idle");
+      }
+    }, 1500);
+
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [placed]); // currentDesignId accessed via ref intentionally
 
   function loadProducts() {
     setProductsLoading(true);
@@ -579,9 +666,7 @@ export default function PlannerPage() {
       .finally(() => setProductsLoading(false));
   }
 
-  useEffect(() => {
-    loadProducts();
-  }, []);
+  useEffect(() => { loadProducts(); }, []);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -591,25 +676,106 @@ export default function PlannerPage() {
     });
     obs.observe(containerRef.current);
     return () => obs.disconnect();
-  }, [ready]);
+  }, [screen]);
 
-  // ── Derived scale (still used for the camera-setup estimate in itemWorldPos) ──
+  // ── Derived scale ─────────────────────────────────────────────────────────
   const availW = cvs.w - LABEL_PAD - ROOM_PAD * 2;
   const availH = cvs.h - LABEL_PAD - ROOM_PAD * 2;
   const scale  = Math.min(availW / roomW, availH / roomD, 5);
   const offX   = LABEL_PAD;
   const offY   = LABEL_PAD;
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
-  function handleSetup(e: React.FormEvent) {
+  // ── Design selection handlers ─────────────────────────────────────────────
+  function openDesign(design: DesignRecord) {
+    setCurrentDesignId(design.id);
+    setCurrentDesignName(design.name);
+    setRoomW(design.roomWidth);
+    setRoomD(design.roomDepth);
+    try {
+      const items: PlacedItem[] = JSON.parse(design.items);
+      setPlaced(Array.isArray(items) ? items : []);
+    } catch {
+      setPlaced([]);
+    }
+    setSelectedId(null);
+    autoSaveActiveRef.current = true;
+    setScreen("planner");
+  }
+
+  async function handleDeleteDesign(id: number) {
+    if (!confirm("Delete this design?")) return;
+    try {
+      await fetch(`/api/designs/${id}`, { method: "DELETE" });
+      setDesigns((prev) => prev.filter((d) => d.id !== id));
+    } catch {}
+  }
+
+  function goToSelectScreen() {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    autoSaveActiveRef.current = false;
+    setCurrentDesignId(null);
+    setCurrentDesignName("Untitled Design");
+    setPlaced([]);
+    setSelectedId(null);
+    setSaveStatus("idle");
+    setScreen("select");
+  }
+
+  // ── Room setup handler ────────────────────────────────────────────────────
+  async function handleSetup(e: React.FormEvent) {
     e.preventDefault();
     const w = parseInt(setupW, 10);
     const d = parseInt(setupD, 10);
     if (!w || !d || w < 50 || d < 50) return;
-    setRoomW(w); setRoomD(d); setReady(true);
+    setRoomW(w);
+    setRoomD(d);
+    setPlaced([]);
+    setSelectedId(null);
+
+    if (user) {
+      try {
+        const res = await fetch("/api/designs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "Untitled Design", roomWidth: w, roomDepth: d, items: "[]" }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setCurrentDesignId(data.design.id);
+          setCurrentDesignName(data.design.name);
+        }
+      } catch {}
+    } else {
+      setCurrentDesignId(null);
+      setCurrentDesignName("Untitled Design");
+    }
+
+    autoSaveActiveRef.current = true;
+    setScreen("planner");
   }
 
-  // Drop from sidebar → find a free spot (scan grid) then place
+  // ── Design name editing ───────────────────────────────────────────────────
+  function startEditName() {
+    setNameEditValue(currentDesignName);
+    setIsEditingName(true);
+  }
+
+  async function commitNameEdit() {
+    setIsEditingName(false);
+    const newName = nameEditValue.trim() || "Untitled Design";
+    setCurrentDesignName(newName);
+    if (currentDesignId !== null) {
+      try {
+        await fetch(`/api/designs/${currentDesignId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: newName }),
+        });
+      } catch {}
+    }
+  }
+
+  // ── Planner handlers ──────────────────────────────────────────────────────
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     const p = dragProduct.current;
@@ -705,12 +871,118 @@ export default function PlannerPage() {
     );
   }
 
+  // ── Design selection screen ───────────────────────────────────────────────
+  if (screen === "select") {
+    return (
+      <div className="min-h-[calc(100vh-76px)] bg-white px-8 py-12">
+        {authLoading ? (
+          <div className="flex items-center justify-center min-h-[40vh]">
+            <div className="w-5 h-5 border border-gray-300 border-t-[#0a0a0a] rounded-full animate-spin" />
+          </div>
+        ) : !user ? (
+          <div className="max-w-sm mx-auto text-center">
+            <h1 className="text-2xl tracking-tight mb-3">Room Planner</h1>
+            <p className="text-sm text-[#6b7280] mb-8">Sign in to save and load your room designs</p>
+            <div className="flex flex-col gap-3">
+              <Link
+                href="/auth/login"
+                className="px-6 py-3 bg-[#0a0a0a] text-white text-sm text-center hover:bg-[#2a2a2a] transition-colors"
+              >
+                Sign In
+              </Link>
+              <button
+                onClick={() => {
+                  autoSaveActiveRef.current = true;
+                  setScreen("setup");
+                }}
+                className="px-6 py-3 border border-gray-200 text-sm hover:border-gray-400 transition-colors"
+              >
+                Continue as Guest
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="max-w-3xl mx-auto">
+            <div className="flex items-center justify-between mb-8">
+              <h1 className="text-2xl tracking-tight">Your Designs</h1>
+              <button
+                onClick={() => setScreen("setup")}
+                className="px-5 py-2.5 bg-[#0a0a0a] text-white text-sm hover:bg-[#2a2a2a] transition-colors"
+              >
+                New Design
+              </button>
+            </div>
+
+            {designsLoading ? (
+              <div className="grid grid-cols-3 gap-4">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="border border-gray-100 p-5 h-36 animate-pulse bg-gray-50" />
+                ))}
+              </div>
+            ) : designs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <p className="text-sm text-[#6b7280] mb-4">No saved designs yet</p>
+                <button
+                  onClick={() => setScreen("setup")}
+                  className="text-sm text-[#0a0a0a] underline underline-offset-4 hover:opacity-60 transition-opacity"
+                >
+                  Create Your First Design
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-4">
+                {designs.map((design) => (
+                  <div
+                    key={design.id}
+                    className="border border-gray-100 p-5 flex flex-col gap-3 hover:border-gray-300 transition-colors"
+                  >
+                    <div>
+                      <p className="text-sm truncate">{design.name}</p>
+                      <p className="text-xs text-[#6b7280] mt-0.5">
+                        {design.roomWidth} cm × {design.roomDepth} cm
+                      </p>
+                      <p className="text-xs text-[#6b7280] mt-0.5">
+                        {formatRelativeTime(design.updatedAt)}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 mt-auto">
+                      <button
+                        onClick={() => openDesign(design)}
+                        className="flex-1 py-1.5 border border-gray-200 text-xs hover:border-gray-400 transition-colors"
+                      >
+                        Open
+                      </button>
+                      <button
+                        onClick={() => handleDeleteDesign(design.id)}
+                        className="py-1.5 px-3 border border-gray-200 text-xs text-red-400 hover:border-red-300 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // ── Room setup screen ─────────────────────────────────────────────────────
-  if (!ready) {
+  if (screen === "setup") {
     return (
       <div className="min-h-[calc(100vh-76px)] flex items-center justify-center bg-white px-4">
         <div className="w-full max-w-sm border border-gray-200 p-8">
-          <h1 className="text-2xl tracking-tight mb-2">Set Up Your Room</h1>
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-2xl tracking-tight">Set Up Your Room</h1>
+            <button
+              onClick={() => setScreen("select")}
+              className="text-xs text-[#6b7280] hover:text-[#0a0a0a] transition-colors"
+            >
+              ← Back
+            </button>
+          </div>
           <p className="text-sm text-[#6b7280] mb-8">
             Enter your room dimensions to start planning.
           </p>
@@ -741,11 +1013,51 @@ export default function PlannerPage() {
       style={{ height: "calc(100vh - 76px)" }}>
 
       {/* ── Toolbar ── */}
-      <div className="shrink-0 flex items-center gap-4 px-5 py-2.5 border-b border-gray-100 text-sm">
-        <span className="text-[#6b7280]">{roomW} cm × {roomD} cm</span>
+      <div className="shrink-0 flex items-center gap-3 px-5 py-2.5 border-b border-gray-100 text-sm">
+
+        {/* Back to designs */}
+        <button
+          onClick={goToSelectScreen}
+          className="text-xs text-[#6b7280] hover:text-[#0a0a0a] transition-colors shrink-0"
+        >
+          ← Designs
+        </button>
+
+        {/* Design name — editable */}
+        {isEditingName ? (
+          <input
+            autoFocus
+            value={nameEditValue}
+            onChange={(e) => setNameEditValue(e.target.value)}
+            onBlur={commitNameEdit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitNameEdit();
+              if (e.key === "Escape") setIsEditingName(false);
+            }}
+            className="text-sm border-b border-gray-300 focus:outline-none focus:border-[#0a0a0a] bg-transparent px-0 w-36 min-w-0"
+          />
+        ) : (
+          <button
+            onClick={currentDesignId !== null ? startEditName : undefined}
+            className={`text-sm truncate max-w-[160px] ${currentDesignId !== null ? "hover:opacity-60 transition-opacity cursor-text" : "cursor-default"}`}
+            title={currentDesignId !== null ? "Click to rename" : undefined}
+          >
+            {currentDesignName}
+          </button>
+        )}
+
         <div className="flex-1" />
 
-        <div className="flex border border-gray-200 overflow-hidden">
+        {/* Save status */}
+        {saveStatus !== "idle" && currentDesignId !== null && (
+          <span className="text-xs text-[#6b7280] shrink-0">
+            {saveStatus === "saving" ? "Saving..." : "Saved"}
+          </span>
+        )}
+
+        <span className="text-[#6b7280] shrink-0">{roomW} cm × {roomD} cm</span>
+
+        <div className="flex border border-gray-200 overflow-hidden shrink-0">
           <button onClick={() => setView("2d")}
             className={`px-4 py-1.5 transition-colors ${view === "2d" ? "bg-[#0a0a0a] text-white" : "hover:bg-gray-50 text-[#0a0a0a]"}`}>
             2D
@@ -758,12 +1070,12 @@ export default function PlannerPage() {
 
         <button
           onClick={addAllToCart}
-          className="px-4 py-1.5 border border-gray-200 hover:border-gray-400 text-[#6b7280] transition-colors">
+          className="px-4 py-1.5 border border-gray-200 hover:border-gray-400 text-[#6b7280] transition-colors shrink-0">
           Add All to Cart
         </button>
 
         {cartMsg && (
-          <span className="text-xs text-[#6b7280]">{cartMsg}</span>
+          <span className="text-xs text-[#6b7280] shrink-0">{cartMsg}</span>
         )}
 
         <button
@@ -771,7 +1083,7 @@ export default function PlannerPage() {
             if (!placed.length) return;
             if (confirm("Remove all placed furniture?")) { setPlaced([]); setSelectedId(null); }
           }}
-          className="px-4 py-1.5 border border-gray-200 hover:border-gray-400 text-[#6b7280] transition-colors">
+          className="px-4 py-1.5 border border-gray-200 hover:border-gray-400 text-[#6b7280] transition-colors shrink-0">
           Clear All
         </button>
       </div>
