@@ -49,7 +49,12 @@ export default function Navbar() {
           <div className="h-3.5 w-20 bg-gray-200 rounded animate-pulse" />
         ) : user ? (
           <>
-            <span className="text-[#0a0a0a] truncate max-w-[120px]">{user.name}</span>
+            <span className="text-[#0a0a0a] truncate max-w-[120px]">Hello, {user.name}</span>
+            {user.role === "admin" && (
+              <Link href="/admin" className="hover:opacity-60 transition-opacity text-[#0a0a0a]">
+                Admin Dashboard
+              </Link>
+            )}
             <button
               onClick={logout}
               className="hover:opacity-60 transition-opacity text-[#0a0a0a]"
@@ -101,7 +106,10 @@ export default function Navbar() {
           <div className="border-t border-gray-100">
             {mounted && !loading && user ? (
               <>
-                <span className="block px-8 py-4 text-[#6b7280]">{user.name}</span>
+                <span className="block px-8 py-4 text-[#6b7280]">Hello, {user.name}</span>
+                {user.role === "admin" && (
+                  <Link href="/admin" onClick={() => setMenuOpen(false)} className="block px-8 py-4 hover:bg-gray-50 transition-colors">Admin Dashboard</Link>
+                )}
                 <button onClick={() => { logout(); setMenuOpen(false); }} className="w-full text-left px-8 py-4 hover:bg-gray-50 transition-colors">Log Out</button>
               </>
             ) : mounted && !loading ? (
