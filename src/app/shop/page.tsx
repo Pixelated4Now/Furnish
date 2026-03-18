@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useCartStore } from "@/store/cartStore";
@@ -91,6 +91,9 @@ function ShopContent() {
   );
   const [sort, setSort] = useState("");
 
+  const productsRef      = useRef<HTMLDivElement>(null);
+  const hasAutoScrolled  = useRef(false);
+
   // Load categories on mount
   useEffect(() => {
     setCategoriesLoading(true);
@@ -130,11 +133,24 @@ function ShopContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCategory, sort, categories]);
 
+  // Auto-scroll on initial page load when ?category= is already set in the URL
+  useEffect(() => {
+    if (!loading && activeCategory && !hasAutoScrolled.current) {
+      hasAutoScrolled.current = true;
+      productsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [loading, activeCategory]);
+
   function handleCategoryClick(slug: string) {
     const next = activeCategory === slug ? "" : slug;
     setActiveCategory(next);
     const url = next ? `/shop?category=${next}` : "/shop";
     router.push(url, { scroll: false });
+    if (next) {
+      setTimeout(() => {
+        productsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 50);
+    }
   }
 
   return (
@@ -226,7 +242,7 @@ function ShopContent() {
       </section>
 
       {/* ── Sort + Grid ── */}
-      <section className="px-8 pb-24">
+      <section ref={productsRef} className="px-8 pb-24 scroll-mt-8">
         {/* Sort row */}
         <div className="flex items-center justify-between mb-8">
           <p className="text-sm text-[#6b7280]">
