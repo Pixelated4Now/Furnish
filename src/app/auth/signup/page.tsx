@@ -5,6 +5,14 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 
+const PASSWORD_RULES = [
+  { label: "At least 8 characters",           test: (p: string) => p.length >= 8 },
+  { label: "At least one uppercase letter",   test: (p: string) => /[A-Z]/.test(p) },
+  { label: "At least one lowercase letter",   test: (p: string) => /[a-z]/.test(p) },
+  { label: "At least one number",             test: (p: string) => /[0-9]/.test(p) },
+  { label: "At least one special character",  test: (p: string) => /[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(p) },
+];
+
 export default function SignupPage() {
   const router = useRouter();
   const { setUser } = useAuth();
@@ -14,12 +22,23 @@ export default function SignupPage() {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+
+  const ruleResults = PASSWORD_RULES.map((r) => r.test(password));
+  const allRulesMet = ruleResults.every(Boolean);
+  const passwordsMatch = password === confirm;
+  const canSubmit = allRulesMet && passwordsMatch && password.length > 0;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
 
-    if (password !== confirm) {
+    if (!allRulesMet) {
+      setError("Password does not meet all requirements.");
+      return;
+    }
+
+    if (!passwordsMatch) {
       setError("Passwords do not match");
       return;
     }
@@ -100,10 +119,20 @@ export default function SignupPage() {
               required
               autoComplete="new-password"
               value={password}
-              onChange={(e) => { setPassword(e.target.value); if (error) setError(""); }}
+              onChange={(e) => { setPassword(e.target.value); setPasswordTouched(true); if (error) setError(""); }}
               className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition"
               placeholder="••••••••"
             />
+            {passwordTouched && (
+              <ul className="flex flex-col gap-0.5 mt-1">
+                {PASSWORD_RULES.map((rule, i) => (
+                  <li key={i} className={`flex items-center gap-1.5 text-xs ${ruleResults[i] ? "text-gray-900" : "text-gray-400"}`}>
+                    <span>{ruleResults[i] ? "✓" : "✗"}</span>
+                    <span>{rule.label}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -130,7 +159,7 @@ export default function SignupPage() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !canSubmit}
             className="mt-2 w-full py-2.5 text-sm rounded-lg bg-gray-900 text-white hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? "Creating account…" : "Sign Up"}

@@ -5,7 +5,7 @@ import { useCartStore } from "@/store/cartStore";
 import ProductImage from "@/components/ProductImage";
 
 export default function CartPage() {
-  const { items, removeItem, updateQuantity, getTotalPrice } = useCartStore();
+  const { items, removeItem, updateQuantity, clearCart, getTotalPrice } = useCartStore();
   const subtotal = getTotalPrice();
 
   return (
@@ -36,6 +36,16 @@ export default function CartPage() {
 
             {/* ── Cart items (left) ── */}
             <div className="flex-1 min-w-0">
+              <div className="flex justify-end mb-4">
+                <button
+                  onClick={() => {
+                    if (window.confirm("Are you sure you want to clear your cart?")) clearCart();
+                  }}
+                  className="text-xs text-[#6b7280] hover:text-[#0a0a0a] transition-colors border border-gray-200 px-3 py-1.5"
+                >
+                  Clear Cart
+                </button>
+              </div>
               {items.map((item, idx) => (
                 <div key={item.productId}>
                   {idx > 0 && <div className="border-t border-gray-100 my-6" />}

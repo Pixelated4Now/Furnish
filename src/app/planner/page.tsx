@@ -390,7 +390,8 @@ function Scene3D({
 
   // ── Drag state ─────────────────────────────────────────────────────────
   const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
-  const dragPosRef       = useRef<THREE.Vector3 | null>(null);
+  const dragPosRef          = useRef<THREE.Vector3 | null>(null);
+  const lastValidDragPosRef = useRef<THREE.Vector3 | null>(null);
   const draggingIdRef    = useRef<string | null>(null); // ref copy for DOM handlers
   const preDragPosRef    = useRef<{ xCm: number; yCm: number } | null>(null);
   const placedRef        = useRef(placed);
@@ -492,7 +493,14 @@ function Scene3D({
       const halfID = (eH(item) * UNIT) / 2;
       hit.x = Math.max(-halfRW + halfIW, Math.min(halfRW - halfIW, hit.x));
       hit.z = Math.max(-halfRD + halfID, Math.min(halfRD - halfID, hit.z));
-      dragPosRef.current = hit;
+
+      // AABB collision check during drag — reject move if overlapping
+      if (wouldOverlapOthers(id, hit.x, hit.z, halfIW, halfID, placedRef.current, rW, rD)) {
+        if (lastValidDragPosRef.current) dragPosRef.current = lastValidDragPosRef.current;
+      } else {
+        dragPosRef.current = hit;
+        lastValidDragPosRef.current = hit.clone();
+      }
     }
 
     function onPointerUp() {
@@ -515,9 +523,10 @@ function Scene3D({
           }
         }
       }
-      draggingIdRef.current = null;
-      dragPosRef.current    = null;
-      preDragPosRef.current = null;
+      draggingIdRef.current    = null;
+      dragPosRef.current       = null;
+      lastValidDragPosRef.current = null;
+      preDragPosRef.current    = null;
       setDraggingItemId(null);
       document.body.style.cursor = "default";
       if (orbitRef.current) orbitRef.current.enabled = viewRef.current === "3d";
@@ -544,9 +553,10 @@ function Scene3D({
     clickWasDragRef.current = true; // prevent the subsequent click from deselecting
     onSelectRef.current(item.id);
     const { x, z } = itemWorldPos(item, roomW, roomD, roomOffsetX, roomOffsetY, scale);
-    draggingIdRef.current = item.id;
-    dragPosRef.current    = new THREE.Vector3(x, 0, z);
-    preDragPosRef.current = { xCm: item.xCm, yCm: item.yCm };
+    draggingIdRef.current       = item.id;
+    dragPosRef.current          = new THREE.Vector3(x, 0, z);
+    lastValidDragPosRef.current = new THREE.Vector3(x, 0, z);
+    preDragPosRef.current       = { xCm: item.xCm, yCm: item.yCm };
     setDraggingItemId(item.id);
     document.body.style.cursor = "grabbing";
     if (orbitRef.current) orbitRef.current.enabled = false;
