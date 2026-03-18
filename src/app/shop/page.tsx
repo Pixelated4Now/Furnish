@@ -146,11 +146,9 @@ function ShopContent() {
     setActiveCategory(next);
     const url = next ? `/shop?category=${next}` : "/shop";
     router.push(url, { scroll: false });
-    if (next) {
-      setTimeout(() => {
-        productsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 50);
-    }
+    setTimeout(() => {
+      productsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
   }
 
   return (
@@ -180,7 +178,7 @@ function ShopContent() {
             <ProductImage
               src="/images/all.jpg"
               alt="All categories"
-              className="w-full aspect-[3/4] group-hover:opacity-90 transition-opacity"
+              className="w-full aspect-[3/2] group-hover:opacity-90 transition-opacity"
             />
             <span
               className={`text-sm text-center w-full transition-colors ${
@@ -198,7 +196,7 @@ function ShopContent() {
                 <div key={i} className="group flex flex-col gap-3 text-left shrink-0 w-32 md:w-auto">
                   <div
                     className="w-full animate-pulse"
-                    style={{ background: "#c4b5a0", aspectRatio: "3 / 4" }}
+                    style={{ background: "#c4b5a0", aspectRatio: "3 / 2" }}
                   />
                   <div className="h-3 w-12 mx-auto bg-gray-200 animate-pulse rounded" />
                 </div>
@@ -215,14 +213,14 @@ function ShopContent() {
                       <ProductImage
                         src={cat.imageUrl}
                         alt={cat.name}
-                        className="w-full aspect-[3/4] group-hover:opacity-90 transition-opacity"
+                        className="w-full aspect-[3/2] group-hover:opacity-90 transition-opacity"
                       />
                     ) : (
                       <div
                         className="w-full group-hover:opacity-90 transition-opacity"
                         style={{
                           background: PLACEHOLDER,
-                          aspectRatio: "3 / 4",
+                          aspectRatio: "3 / 2",
                         }}
                       />
                     )}
