@@ -36,21 +36,26 @@ Furnish lets shoppers browse a catalogue of furniture, filter by category, add i
 ### Installation
 
 1. Clone the repository and install dependencies:
-
 ```bash
 git clone <repo-url>
 cd furnish
 npm install
 ```
 
-2. Generate the Prisma client:
+2. Create a `.env` file in the root of the project:
+```bash
+DATABASE_URL="file:./dev.db"
+JWT_SECRET=furnish_local_secret_key_123
+```
 
+> This file is not included in the repository for security reasons. You must create it manually before running any Prisma commands.
+
+3. Generate the Prisma client:
 ```bash
 npx prisma generate
 ```
 
-3. Push the schema to create the SQLite database:
-
+4. Push the schema to create the SQLite database:
 ```bash
 npx prisma db push
 ```
@@ -58,13 +63,11 @@ npx prisma db push
 ### Seed the Database
 
 Populate the database with two demo users, 8 products, and 7 categories:
-
 ```bash
 npx prisma db seed
 ```
 
 ### Run the Development Server
-
 ```bash
 npm run dev
 ```
@@ -98,11 +101,13 @@ The admin account has access to the dashboard at `/admin`. Regular user accounts
 - Set custom room dimensions before starting
 - Drag furniture from the sidebar onto the canvas
 - Switch between a top-down 2D view and a perspective 3D view with a smooth camera transition
-- Drag placed furniture to reposition it; pieces snap back if they would overlap
+- Drag placed furniture to reposition it — pieces snap back if they would overlap
 - Rotate pieces through 0°, 90°, 180°, and 270°
 - Select a placed piece to switch between its available colour or material variants
 - AABB collision detection prevents furniture pieces from overlapping
-- "Add All to Cart" button adds every placed item to the cart in one click
+- Save room designs to the database — designs auto-save as you make changes
+- Load, rename, and delete saved designs from the design selection screen
+- "Add All to Cart" adds every placed item to the cart in one click
 
 ### Auth
 - Sign up and log in with email and password
