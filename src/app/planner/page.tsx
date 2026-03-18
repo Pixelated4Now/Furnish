@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
@@ -228,11 +228,12 @@ interface FurnitureMesh3DProps {
   isDragging: boolean;
   dragPosRef: React.MutableRefObject<THREE.Vector3 | null>;
   onPointerDown: (e: any) => void;
+  onRegisterGroup: (id: string, obj: THREE.Object3D | null) => void;
 }
 
 function FurnitureMesh3D({
   item, roomW, roomD, roomOffsetX, roomOffsetY, scale,
-  selected, isDragging, dragPosRef, onPointerDown,
+  selected, isDragging, dragPosRef, onPointerDown, onRegisterGroup,
 }: FurnitureMesh3DProps) {
   const [rawModel, setRawModel] = useState<THREE.Object3D | null>(null);
   const [model, setModel]       = useState<THREE.Object3D | null>(null);
@@ -299,6 +300,16 @@ function FurnitureMesh3D({
   useEffect(() => {
     setModel(rawModel ? rawModel.clone() : null);
   }, [rawModel]);
+
+  // Register this group into the furniture mesh ref array for click raycasting
+  useLayoutEffect(() => {
+    if (groupRef.current) {
+      groupRef.current.userData = { ...groupRef.current.userData, itemId: item.id };
+      onRegisterGroup(item.id, groupRef.current);
+    }
+    return () => { onRegisterGroup(item.id, null); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.id, onRegisterGroup]);
 
   // Apply/remove emissive highlight on all meshes in the cloned model
   useEffect(() => {
@@ -388,6 +399,21 @@ function Scene3D({
   const ndcRef           = useRef(new THREE.Vector2());
   const floorPlane       = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
 
+  // ── Furniture mesh registry for deselection raycasting ─────────────────
+  const furnitureMeshMapRef = useRef<Map<string, THREE.Object3D>>(new Map());
+  const furnitureMeshesRef  = useRef<THREE.Object3D[]>([]);
+  const clickWasDragRef     = useRef(false);
+  const clickStartRef       = useRef<{ x: number; y: number } | null>(null);
+
+  const registerFurnitureMesh = useCallback((id: string, obj: THREE.Object3D | null) => {
+    if (obj) {
+      furnitureMeshMapRef.current.set(id, obj);
+    } else {
+      furnitureMeshMapRef.current.delete(id);
+    }
+    furnitureMeshesRef.current = Array.from(furnitureMeshMapRef.current.values());
+  }, []);
+
   // Keep refs in sync with latest render values
   useLayoutEffect(() => { placedRef.current = placed; });
 
@@ -410,7 +436,40 @@ function Scene3D({
   useEffect(() => {
     const canvas = storeRef.current.gl.domElement;
 
+    function onPointerDownClick(e: PointerEvent) {
+      clickStartRef.current = { x: e.clientX, y: e.clientY };
+      clickWasDragRef.current = false;
+    }
+
+    function onCanvasClick(e: MouseEvent) {
+      if (clickWasDragRef.current) return;
+      const { camera, gl: glStore } = storeRef.current;
+      const rect = glStore.domElement.getBoundingClientRect();
+      ndcRef.current.set(
+        ((e.clientX - rect.left) / rect.width)  *  2 - 1,
+        ((e.clientY - rect.top)  / rect.height) * -2 + 1,
+      );
+      raycasterRef.current.setFromCamera(ndcRef.current, camera);
+      const intersects = raycasterRef.current.intersectObjects(furnitureMeshesRef.current, true);
+      if (intersects.length > 0) {
+        let obj: THREE.Object3D | null = intersects[0].object;
+        let itemId: string | null = null;
+        while (obj) {
+          if (obj.userData?.itemId) { itemId = obj.userData.itemId as string; break; }
+          obj = obj.parent;
+        }
+        if (itemId) onSelectRef.current(itemId);
+      } else {
+        onSelectRef.current(null);
+      }
+    }
+
     function onPointerMove(e: PointerEvent) {
+      if (clickStartRef.current) {
+        const dx = e.clientX - clickStartRef.current.x;
+        const dy = e.clientY - clickStartRef.current.y;
+        if (dx * dx + dy * dy > 25) clickWasDragRef.current = true;
+      }
       if (!draggingIdRef.current) return;
       const { camera, gl: glStore } = storeRef.current;
       const rect = glStore.domElement.getBoundingClientRect();
@@ -464,13 +523,17 @@ function Scene3D({
       if (orbitRef.current) orbitRef.current.enabled = viewRef.current === "3d";
     }
 
-    canvas.addEventListener("pointermove", onPointerMove);
-    canvas.addEventListener("pointerup",   onPointerUp);
+    canvas.addEventListener("pointerdown",   onPointerDownClick);
+    canvas.addEventListener("pointermove",   onPointerMove);
+    canvas.addEventListener("pointerup",     onPointerUp);
     canvas.addEventListener("pointercancel", onPointerUp);
+    canvas.addEventListener("click",         onCanvasClick);
     return () => {
-      canvas.removeEventListener("pointermove", onPointerMove);
-      canvas.removeEventListener("pointerup",   onPointerUp);
+      canvas.removeEventListener("pointerdown",   onPointerDownClick);
+      canvas.removeEventListener("pointermove",   onPointerMove);
+      canvas.removeEventListener("pointerup",     onPointerUp);
       canvas.removeEventListener("pointercancel", onPointerUp);
+      canvas.removeEventListener("click",         onCanvasClick);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // runs once; all live values accessed via refs
@@ -478,6 +541,7 @@ function Scene3D({
   // ── Start drag (called from R3F pointer events on each furniture piece) ──
   function startDrag(e: any, item: PlacedItem) {
     e.stopPropagation();
+    clickWasDragRef.current = true; // prevent the subsequent click from deselecting
     onSelectRef.current(item.id);
     const { x, z } = itemWorldPos(item, roomW, roomD, roomOffsetX, roomOffsetY, scale);
     draggingIdRef.current = item.id;
@@ -515,12 +579,11 @@ function Scene3D({
         />
       )}
 
-      {/* Floor — always visible; click deselects */}
+      {/* Floor — always visible */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, 0, 0]}
         receiveShadow
-        onClick={() => onSelectRef.current(null)}
       >
         <planeGeometry args={[rW, rD]} />
         <meshStandardMaterial color="#c4b5a0" />
@@ -556,6 +619,7 @@ function Scene3D({
           isDragging={item.id === draggingItemId}
           dragPosRef={dragPosRef}
           onPointerDown={(e) => startDrag(e, item)}
+          onRegisterGroup={registerFurnitureMesh}
         />
       ))}
     </>
