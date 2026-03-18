@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { initCart } from "@/store/cartStore";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -32,6 +33,7 @@ export default function LoginPage() {
         return;
       }
 
+      initCart(String(data.user.id));
       setUser(data.user);
       router.push("/shop");
     } catch {

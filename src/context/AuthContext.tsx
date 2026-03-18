@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { initCart } from "@/store/cartStore";
 
 interface User {
   id: number;
@@ -27,8 +28,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     fetch("/api/auth/me")
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => setUser(data?.user ?? null))
-      .catch(() => setUser(null))
+      .then((data) => {
+        const user = data?.user ?? null;
+        setUser(user);
+        initCart(user ? String(user.id) : "guest");
+      })
+      .catch(() => { setUser(null); initCart("guest"); })
       .finally(() => setLoading(false));
   }, []);
 

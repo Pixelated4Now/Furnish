@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { initCart } from "@/store/cartStore";
 
 const PASSWORD_RULES = [
   { label: "At least 8 characters",           test: (p: string) => p.length >= 8 },
@@ -59,6 +60,7 @@ export default function SignupPage() {
         return;
       }
 
+      initCart(String(data.user.id));
       setUser(data.user);
       router.push("/shop");
     } catch {

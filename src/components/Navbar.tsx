@@ -3,13 +3,20 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { useCartStore } from "@/store/cartStore";
+import { useCartStore, saveCart, clearLocalCart } from "@/store/cartStore";
 
 export default function Navbar() {
   const { user, loading, logout } = useAuth();
   const totalItems = useCartStore((s) => s.getTotalItems());
   const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  async function handleLogout() {
+    const { items, currentUserId } = useCartStore.getState();
+    if (currentUserId) saveCart(currentUserId, items);
+    await logout();
+    clearLocalCart();
+  }
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -56,7 +63,7 @@ export default function Navbar() {
               </Link>
             )}
             <button
-              onClick={logout}
+              onClick={handleLogout}
               className="hover:opacity-60 transition-opacity text-[#0a0a0a]"
             >
               Log Out
@@ -110,7 +117,7 @@ export default function Navbar() {
                 {user.role === "admin" && (
                   <Link href="/admin" onClick={() => setMenuOpen(false)} className="block px-8 py-4 hover:bg-gray-50 transition-colors">Admin Dashboard</Link>
                 )}
-                <button onClick={() => { logout(); setMenuOpen(false); }} className="w-full text-left px-8 py-4 hover:bg-gray-50 transition-colors">Log Out</button>
+                <button onClick={() => { handleLogout(); setMenuOpen(false); }} className="w-full text-left px-8 py-4 hover:bg-gray-50 transition-colors">Log Out</button>
               </>
             ) : mounted && !loading ? (
               <>
